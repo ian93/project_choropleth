@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Car Accident Choropleth</title>
+    <script src="https://d3js.org/d3.v3.js"></script>
+    <script src="topojson.min.js"></script>
+    <style>
+        .map-boundary {
+          stroke: #eee;
+        }
+        svg {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <svg width="1200" height="700"></svg>
+    
+    <script>
+        
+        var projection, selection;
+        var maxCases, minCases;
+        var dist = ["#大同區", "#萬華區", "#中山區", "#大安區", "#中正區", "#松山區",
+                    "#信義區", "#士林區", "#北投區", "#文山區", "#南港區", "#內湖區"];
+        
+        //1.地理資料檔: GeoJSON or TopoJSON
+        d3.csv("stat.csv", transData, function(dataSet){
+            d3.json("tp-dist-geo.json", function(mapDataSet){
+            
+//                console.log(dataSet);
+//                console.log(mapDataSet);
+//                var newDistArr = [];
+//                for(i = 0; i < dist.length; i++){
+//                    newDistArr.push({district: dist[i], ppl: dataSet[i].ppl,cases: dataSet[i].cases});
+//                }
+//                console.log(newDistArr);
+
+                bind(mapDataSet);
+                render(newDistArr);
+                
+//                console.log(mapDataSet.features[0].properties.TOWNNAME);
+            });
+        });
+        
+        function transData(d){
+            
+            d.ppl      = +d.ppl     ;
+            d.cases    = +d.cases   ;
+            d.cases_a1 = +d.cases_a1;
+            
+            return d;
+        }
+        
+        function render(dataSet){
+            
+            // 設定顏色比例尺
+            var maxCases = d3.max(dataSet, function(d){
+                    return d.cases;
+                });
+            var minCases = d3.min(dataSet, function(d){
+                    return d.cases;
+                });
+            var linear = d3.scale.linear()
+                                 .domain([minCases, maxCases])
+                                 .range([0, 1]);
+            var light = d3.rgb(255, 255, 150);
+            var dark = d3.rgb(175, 0, 0);
+            var setColor = d3.interpolate(light, dark);
+            function color(i){
+                return setColor(linear(dataSet[i].cases));
+            }
+            
+            // 設定資料配對
+            var distIndex = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+            var distScale = d3.scale.ordinal()
+                                    .domain(dist)
+                                    .range(distIndex);
+                        
+            // 繪製地圖
+            for(i = 0; i < dist.length; i++){
+                d3.selectAll(dist[i]).attr({
+                    fill: color(distScale(dist[i]))+"",
+                    stroke: "#000",
+                    "stroke-width": 4
+                })
+                  .on("mouseover", function(d){
+                    d3.select(this).attr({
+                        fill: "limegreen",
+                        stroke: "black",
+                        "stroke-width": 4
+                    })
+                })
+                  .on("mouseout", function(d){
+                    d3.select(this).attr({
+                        fill: color(distScale(dist[i]))+""
+                    })
+                });
+            }
+            
+//            selection.enter()
+//                .append("path")
+//                .attr("stroke","#000")
+//                .attr("stroke-width",1)
+//                .attr("fill", function(d,i){
+//                    return color(i);
+//                })
+//                .attr("d", path )
+//                .on("mouseover",function(d,i){
+//                    d3.select(this)
+//                        .attr("fill","yellow");
+//                })
+//                .on("mouseout",function(d,i){
+//                    d3.select(this)
+//                        .attr("fill",color(i));
+//            });
+        }
+        
+        function bind(geoRoot){
+            
+            // 2.地理投影器: 設定投影方式(麥卡托)、定位點([經度,緯度])、縮放(scale)
+            projection = d3.geo.mercator().center([121.5,25.125]).scale(130000);
+//            console.log(projection([121.54949,25.085062]))
+            
+            // 3.路徑產生器: d3.geo.path()
+            var path = d3.geo.path().projection(projection);
+                
+            // 綁定path與載入的地理資料(features:每一地理區劃)
+            // var selection = d3.select("svg").selectAll("path").data(geoRoot.geometries) --- 不含dbf
+            selection = d3.select("svg").selectAll("path").data(geoRoot.features);
+            selection.enter().append("path").classed("map-boundary", true)
+                .attr("d", path)
+                .attr("id", function(d){
+                    return d.properties.TOWNNAME;
+            });
+            selection.exit().remove();
+            
+        }
+    </script>
+
+</body>
+</html>
